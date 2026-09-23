@@ -1,3 +1,8 @@
+## Release 2026-09-23
+
+### AWS.AgentCore.Hosting (1.1.2)
+* Ensure AgentCore memory events saved within a session receive strictly-increasing timestamps so conversation history replays in chronological order.
+
 ## Release 2026-08-20 #2
 
 ### AWS.AgentCore.Hosting (1.1.1)
