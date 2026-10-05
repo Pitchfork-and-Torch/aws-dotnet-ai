@@ -3391,6 +3391,86 @@ public class BedrockChatClientTests
         Assert.NotNull(result);
     }
 
+    [Fact]
+    [Trait("UnitTest", "BedrockRuntime")]
+    public async Task IChatClient_GetResponseAsync_FunctionResultContent_JsonElement_PreservesLargeIntegers()
+    {
+        IAmazonBedrockRuntime mock = CreateMock(onConverseRequest: request =>
+        {
+            var toolResult = request.Messages[0].Content[0].ToolResult;
+            Assert.NotNull(toolResult);
+            var obj = toolResult.Content[0].Json.AsDictionary()["result"].AsDictionary();
+
+            Assert.True(obj["id"].IsLong());
+            Assert.Equal(576460752305406057L, obj["id"].AsLong());
+            Assert.True(obj["small"].IsInt());
+            Assert.Equal(42, obj["small"].AsInt());
+            Assert.True(obj["fraction"].IsDouble());
+            Assert.Equal(1.5, obj["fraction"].AsDouble());
+            Assert.True(obj["huge"].IsDouble());
+
+            return CreateResponse("JsonElement result processed.");
+        });
+
+        IChatClient chatClient = mock.AsIChatClient("claude");
+
+        using JsonDocument jsonDoc = JsonDocument.Parse("""{"id": 576460752305406057, "small": 42, "fraction": 1.5, "huge": 1e300}""");
+        ChatMessage[] messages =
+        [
+            new(ChatRole.User,
+            [
+                new FunctionResultContent("call_json", jsonDoc.RootElement)
+            ])
+        ];
+
+        ChatResponse result = await chatClient.GetResponseAsync(messages, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.NotNull(result);
+    }
+
+    [Fact]
+    [Trait("UnitTest", "BedrockRuntime")]
+    public async Task IChatClient_GetResponseAsync_FunctionCallContent_JsonElementArguments_PreservesLargeIntegers()
+    {
+        IAmazonBedrockRuntime mock = CreateMock(onConverseRequest: request =>
+        {
+            var toolUse = request.Messages[1].Content[0].ToolUse;
+            Assert.NotNull(toolUse);
+            var input = toolUse.Input.AsDictionary();
+
+            Assert.True(input["id"].IsLong());
+            Assert.Equal(576460752305406057L, input["id"].AsLong());
+
+            var nested = input["nested"].AsDictionary();
+            Assert.True(nested["ids"].AsList()[0].IsLong());
+            Assert.Equal(long.MaxValue, nested["ids"].AsList()[0].AsLong());
+
+            return CreateResponse("Done.");
+        });
+
+        IChatClient chatClient = mock.AsIChatClient("claude");
+
+        using JsonDocument args = JsonDocument.Parse("""{"id": 576460752305406057, "nested": {"ids": [9223372036854775807]}}""");
+        ChatMessage[] messages =
+        [
+            new(ChatRole.User, "Look up the item."),
+            new(ChatRole.Assistant,
+            [
+                new FunctionCallContent("call_1", "lookup", new Dictionary<string, object?>
+                {
+                    ["id"] = args.RootElement.GetProperty("id"),
+                    ["nested"] = args.RootElement.GetProperty("nested"),
+                })
+            ]),
+            new(ChatRole.Tool,
+            [
+                new FunctionResultContent("call_1", "found")
+            ]),
+        ];
+
+        ChatResponse result = await chatClient.GetResponseAsync(messages, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.NotNull(result);
+    }
+
     [Theory]
     [Trait("UnitTest", "BedrockRuntime")]
     [InlineData(3.14f)]

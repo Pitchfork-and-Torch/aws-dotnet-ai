@@ -894,6 +894,17 @@ internal sealed partial class BedrockChatClient : IChatClient
                 return json.GetString();
 
             case JsonValueKind.Number:
+                // Prefer integral representations so that integers above 2^53 are not rounded through double.
+                if (json.TryGetInt32(out int intValue))
+                {
+                    return intValue;
+                }
+
+                if (json.TryGetInt64(out long longValue))
+                {
+                    return longValue;
+                }
+
                 return json.GetDouble();
 
             case JsonValueKind.True:
