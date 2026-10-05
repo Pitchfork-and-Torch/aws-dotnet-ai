@@ -2974,6 +2974,68 @@ public class BedrockChatClientTests
 
     [Fact]
     [Trait("UnitTest", "BedrockRuntime")]
+    public async Task IChatClient_GetResponseAsync_FunctionResultContent_WithException_SetsErrorStatus()
+    {
+        // FunctionInvokingChatClient attaches Exception on failed tool calls. Bedrock's
+        // optional toolResult.status should be "error" so supported models see the failure.
+        IAmazonBedrockRuntime mock = CreateMock(onConverseRequest: request =>
+        {
+            var toolResult = request.Messages[0].Content[0].ToolResult;
+            Assert.NotNull(toolResult);
+            Assert.Equal("call_err", toolResult.ToolUseId);
+            Assert.Single(toolResult.Content);
+            Assert.Equal("Error: Function failed.", toolResult.Content[0].Text);
+            Assert.Equal(ToolResultStatus.Error, toolResult.Status);
+
+            return CreateResponse("Sorry, the tool failed.");
+        });
+
+        IChatClient chatClient = mock.AsIChatClient("us.anthropic.claude-sonnet-4-5-20250929-v1:0");
+        ChatMessage[] messages =
+        [
+            new(ChatRole.User,
+            [
+                new FunctionResultContent("call_err", "Error: Function failed.")
+                {
+                    Exception = new InvalidOperationException("weather service unavailable"),
+                }
+            ])
+        ];
+
+        ChatResponse result = await chatClient.GetResponseAsync(messages, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.NotNull(result);
+    }
+
+    [Fact]
+    [Trait("UnitTest", "BedrockRuntime")]
+    public async Task IChatClient_GetResponseAsync_FunctionResultContent_WithoutException_LeavesStatusUnset()
+    {
+        // A null Exception is informational only and must not be treated as success.
+        IAmazonBedrockRuntime mock = CreateMock(onConverseRequest: request =>
+        {
+            var toolResult = request.Messages[0].Content[0].ToolResult;
+            Assert.NotNull(toolResult);
+            Assert.Equal("call_ok", toolResult.ToolUseId);
+            Assert.Null(toolResult.Status);
+
+            return CreateResponse("Got your result");
+        });
+
+        IChatClient chatClient = mock.AsIChatClient("claude");
+        ChatMessage[] messages =
+        [
+            new(ChatRole.User,
+            [
+                new FunctionResultContent("call_ok", "ok")
+            ])
+        ];
+
+        ChatResponse result = await chatClient.GetResponseAsync(messages, cancellationToken: TestContext.Current.CancellationToken);
+        Assert.NotNull(result);
+    }
+
+    [Fact]
+    [Trait("UnitTest", "BedrockRuntime")]
     public async Task IChatClient_GetResponseAsync_FunctionResultContent_WithDataContent()
     {
         byte[] imageData = [0x89, 0x50, 0x4E, 0x47];

@@ -1,0 +1,11 @@
+{
+  "Projects": [
+    {
+      "Name": "AWS.Bedrock.MEAI",
+      "Type": "Patch",
+      "ChangelogMessages": [
+        "Set ToolResultBlock.Status to error when FunctionResultContent.Exception is present"
+      ]
+    }
+  ]
+}
