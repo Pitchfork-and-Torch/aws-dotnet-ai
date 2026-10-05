@@ -696,6 +696,10 @@ internal sealed partial class BedrockChatClient : IChatClient
                         {
                             ToolUseId = frc.CallId,
                             Content = ToToolResultContentBlocks(frc.Result),
+                            // Preserve structured tool-failure status for models that honor
+                            // toolResult.status (Nova, Claude 3/4). Leave unset when Exception
+                            // is null — that property is informational and not proof of success.
+                            Status = frc.Exception is not null ? ToolResultStatus.Error : null,
                         },
                     });
                     break;
