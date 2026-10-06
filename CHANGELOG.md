@@ -1,3 +1,10 @@
+## Release 2026-10-06
+
+### AWS.Bedrock.MEAI (1.0.1)
+* Set ToolResultBlock.Status to error when FunctionResultContent.Exception is present
+* Fixed BedrockChatClient embedding raw streamed tool input in the parse-error Exception.Message attached to FunctionCallContent; it now uses a generic message and preserves the parser exception as the inner exception (#80)
+* Fix #73. Preserve integer precision when converting JSON numbers in tool results and tool-call arguments to Bedrock documents. Integers that fit in Int32 or Int64 are no longer rounded through double.
+
 ## Release 2026-09-23
 
 ### AWS.AgentCore.Hosting (1.1.2)
